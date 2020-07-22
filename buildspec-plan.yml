@@ -1,0 +1,57 @@
+version: 0.2
+
+env:
+  variables:
+    TF_VERSION: "0.12.26"
+
+  parameter-store:
+    BACKEND_BUCKET: "/tgw/backend_state_bucket"
+    TF_VAR_aws_region: "/tgw/aws_region"
+    TF_VAR_appenv: "/tgw/app-env"
+    SPOKE_ACCOUNT: "/tgw/aws-account-number"
+    
+phases:
+
+  install:
+    commands:
+      # install required binaries for tgw
+      - "curl -s -qL -o /usr/bin/jq https://stedolan.github.io/jq/download/linux64/jq"
+      - "chmod +x /usr/bin/jq"
+      - "cd /usr/bin"
+      - "curl -s -qL -o terraform.zip https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+      - "unzip -o terraform.zip"
+      - "chmod +x /usr/bin/terraform"
+      - "/usr/bin/terraform --version"
+      - "curl -L -o /tmp/tflint.zip https://github.com/terraform-linters/tflint/releases/download/v0.13.2/tflint_linux_amd64.zip && unzip /tmp/tflint.zip -d /usr/local/bin"
+      - "tflint --version"
+      - "wget -O /usr/local/bin/tfsec https://github.com/liamg/tfsec/releases/download/v0.19.0/tfsec-linux-amd64 && chmod +x /usr/local/bin/tfsec"
+      - "tfsec --version"
+      - "aws --version"
+
+  pre_build:
+    commands:
+      - echo "pre build step"
+      - export AWS_DEFAULT_REGION=${TF_VAR_aws_region}
+      - export appenv=${TF_VAR_appenv}
+      - export current_account=${SPOKE_ACCOUNT}
+      - echo "AWS_DEFAULT_REGION = "${AWS_DEFAULT_REGION}
+      - echo "appenv = "${appenv}
+      - echo "Current AWS Account = "${current_account}
+
+  build:
+    commands:
+      - cd "$CODEBUILD_SRC_DIR/terraform"
+      - find . -name ".terraform" -prune -o -type f -name "*.tf" -exec dirname {} \;|sort -u | while read m; do (cd "$m" && tflint && echo "√ $m") || exit 1 ; done
+      # - "tfsec ./"
+      - echo "terraform"
+      - terraform init -backend-config="bucket=${BACKEND_BUCKET}" -backend-config="key=terraform.tfstate" -backend-config="region=${TF_VAR_aws_region}" -backend-config="dynamodb_table=tgw-tf-lock"
+      - terraform plan -input=false -var-file=${TF_VAR_appenv}/tgw.tfvars
+ 
+  post_build:
+    commands:
+      - echo "terraform completed on `date`"
+
+
+artifacts:
+  files:
+    - '**/*'
