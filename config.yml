@@ -1,0 +1,126 @@
+version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@0.1.16
+commands:
+  setup-environment-vars: 
+    description: "Setup environment variables."
+    steps:
+      - run:
+          name: Export required environment variables.
+          command: |    
+            #Set the environment that will be used for cases where dev/feature branches that need access an AWS environment to test against.
+            export DEFAULT_ENV="dev"
+            export AWS_DEFAULT_REGION="us-east-1" 
+            # Set the access key variables according to the current branch.
+            # If you did not set the specific access key variables for the branch you are on it will be set to
+            # default environments's access key.
+            export AWS_ACCESS_KEY_ID=$(env | awk -F= "/^AWS_ACCESS_KEY_ID_${CIRCLE_BRANCH}=/ {print \$2}")
+            export AWS_SECRET_ACCESS_KEY=$(env | awk -F= "/^AWS_SECRET_ACCESS_KEY_${CIRCLE_BRANCH}=/ {print \$2}")
+            #Set bucket name based on branch being committed 
+            export LAMBDA_BUCKET=$(env | awk -F= "/^LAMBDA_BUCKET_${CIRCLE_BRANCH}=/ {print \$2}")
+
+            #Use the AWS access key and backend bucket for the default environment IF this branch does not have specific keys setup for it.
+            if [ -z "$AWS_ACCESS_KEY_ID"]
+            then 
+              export AWS_ACCESS_KEY_ID=$(env | awk -F= "/^AWS_ACCESS_KEY_ID_${DEFAULT_ENV}=/ {print \$2}")
+              export AWS_SECRET_ACCESS_KEY=$(env | awk -F= "/^AWS_SECRET_ACCESS_KEY_${DEFAULT_ENV}=/ {print \$2}")
+              export LAMBDA_BUCKET=$(env | awk -F= "/^LAMBDA_BUCKET_${DEFAULT_ENV}=/ {print \$2}")
+              TF_VAR_appenv=${DEFAULT_ENV}
+            fi
+
+            #Create the environment variable file that persists between jobs.
+            #Access these variables by doing a `. ${BASH_ENV}` 
+            cat \<<EOF >> $BASH_ENV
+            export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            export AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}              
+            export LAMBDA_BUCKET=${LAMBDA_BUCKET}	
+            EOF
+
+  lamda_test:
+    description: "Run any tests required prior to zip and ship"
+    parameters:
+      s3_bucket:
+        type: string
+        default: "tested"
+    steps:
+      - run:
+          name: Run unit tests, package lambda, and ship to s3
+          command: |   
+              export SOLUTION_NAME=tgw-stno-lambdas # name of the solution
+              export DIST_OUTPUT_BUCKET=<< parameters.s3_bucket >> # bucket where customized code will reside 
+              export VERSION="${CIRCLE_TAG:-$CIRCLE_BRANCH}" # version number for the customized code 
+
+              # Install requirements
+              pip3 install -r ./source/testing_requirements.txt
+              
+              # Change into the deployment directory
+              cd ./deployment
+              # Run the unit testing
+              ## Commented out due to issue with missing lib.s3
+              chmod +x ./run-unit-tests.sh
+              ./run-unit-tests.sh  
+
+  lamda_zip_and_ship:
+    description: "Build lambda zip and ship to s3"
+    parameters:
+      s3_bucket:
+        type: string
+        default: "tested"
+    steps:
+      - run:
+          name: Run unit tests, package lambda, and ship to s3
+          command: |   
+              export SOLUTION_NAME=tgw-stno-lambdas # name of the solution
+              export DIST_OUTPUT_BUCKET=<< parameters.s3_bucket >> # bucket where customized code will reside 
+              export VERSION="${CIRCLE_TAG:-$CIRCLE_BRANCH}" # version number for the customized code 
+
+              # Install requirements
+              pip3 install -r ./source/testing_requirements.txt
+              
+              # Change into the deployment directory
+              cd ./deployment
+             
+              # Create lambda zips
+              chmod +x ./build-lambda-only.sh
+              ./build-lambda-only.sh $DIST_OUTPUT_BUCKET $SOLUTION_NAME $VERSION
+              # Copy lambda zips
+              aws s3 cp ./regional-s3-assets/ s3://$DIST_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/ --recursive --acl bucket-owner-full-control 
+              # Debug stuffs
+              echo "---------DEBUG-----FOR---SM---"
+              unzip -l ./regional-s3-assets/aws-transit-network-orchestrator-sm.zip
+
+jobs:
+
+  lambda-builder:
+    executor: 
+      name: aws-cli/default
+      python-version: "3.7.6"
+      debian-release: "stretch"
+    steps: 
+      - checkout
+      - setup-environment-vars          
+      - aws-cli/setup:
+          aws-region: AWS_DEFAULT_REGION
+          aws-access-key-id: AWS_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+          configure-default-region: true
+      - lamda_test:
+          s3_bucket: ${LAMBDA_BUCKET}  
+      - lamda_zip_and_ship:
+          s3_bucket: ${LAMBDA_BUCKET}
+      
+workflows:
+  version: 2
+  test-workflow:
+    jobs:     
+      - lambda-builder:     
+          filters:
+            tags:
+              only: /^v.*/ 
+            branches:
+              only:
+                - master
+                - dev                 
+          
+              
