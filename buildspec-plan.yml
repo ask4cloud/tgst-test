@@ -50,7 +50,7 @@ phases:
       - echo "terraform"
       # - terraform init -backend-config="bucket=${BACKEND_BUCKET}" -backend-config="key=terraform.tfstate" -backend-config="region=${TF_VAR_aws_region}" -backend-config="dynamodb_table=tgw-tf-lock"
       # - terraform plan -input=false -var-file=${TF_VAR_appenv}/tgw.tfvars
-      - cd ./deployment
+      - cd "$CODEBUILD_SRC_DIR/deployment"
       - chmod +x ./run-unit-tests.sh
       - ./run-unit-tests.sh
       - chmod +x ./build-lambda-only.sh
