@@ -30,7 +30,7 @@ phases:
       - "wget -O /usr/local/bin/tfsec https://github.com/liamg/tfsec/releases/download/v0.19.0/tfsec-linux-amd64 && chmod +x /usr/local/bin/tfsec"
       - "tfsec --version"
       - "aws --version"
-      - "pip3 install -r ./source/testing_requirements.txt"
+      - "pip3 install -r $CODEBUILD_SRC_DIR/testing_requirements.txt"
 
   pre_build:
     commands:
