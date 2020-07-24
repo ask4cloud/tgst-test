@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     TF_VERSION: "0.12.26"
-    DIST_OUTPUT_BUCKET: "/tgw/test-dist-output-bucket"
+    DIST_OUTPUT_BUCKET: "test-dist-output-bucket"
     SOLUTION_NAME: "test-solution-name"
     VERSION: "0.1"
 
