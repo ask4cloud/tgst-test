@@ -53,7 +53,7 @@ phases:
       - chmod +x ./build-lambda-only.sh
       - ./build-lambda-only.sh ${DIST_OUTPUT_BUCKET} ${SOLUTION_NAME} ${VERSION}
       - aws s3 cp ./regional-s3-assets/ s3://${DIST_OUTPUT_BUCKET}/${SOLUTION_NAME}/${VERSION}/ --recursive --acl bucket-owner-full-control 
-      - echo "---------DEBUG-----FOR---SM---"
+      - echo "---------DEBUG-----FOR------"
       - unzip -l ./regional-s3-assets/aws-transit-network-orchestrator-sm.zip
  
   post_build:
