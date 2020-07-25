@@ -8,7 +8,6 @@ env:
     VERSION: "0.1"
     TF_VAR_aws_region: "/tgw/aws_region"
     TF_VAR_appenv: "/tgw/app-env"
-    TF_VAR_aws_region: "/tgw/aws_region"
     
 phases:
 
