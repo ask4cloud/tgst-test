@@ -4,10 +4,13 @@ env:
   parameter-store:
     TF_VERSION: "/zip/tf_version"
     DIST_OUTPUT_BUCKET: "/zip/dist_output_bucket"
-    SOLUTION_NAME: "test-solution-name"
-    VERSION: "0.1"
     TF_VAR_aws_region: "/tgw/aws_region"
     TF_VAR_appenv: "/tgw/app-env"
+
+  variables:
+    SOLUTION_NAME: "test-solution-name"
+    VERSION: "0.1"
+
     
 phases:
 
