@@ -1,0 +1,56 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CodeBuild project and IAM role"
+Parameters:
+  Image:
+    Type: String
+    Description: "Name of the docker image."
+    Default: "my-image"
+Resources:
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: "CodeBuild-Service-Policy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:CompleteLayerUpload"
+                  - "ecr:DescribeImages"
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:InitiateLayerUpload"
+                  - "ecr:ListImages"
+                  - "ecr:PutImage"
+                  - "ecr:UploadLayerPart"
+                  - "logs:*"
+                Resource: "*"
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        ComputeType: "BUILD_GENERAL1_SMALL"
+        Image: "aws/codebuild/amazonlinux2-x86_64-standard:2.0"
+        Type: LINUX_CONTAINER
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: GITHUB
+        Location: "https://github.com/ask4cloud/tgst-test.git"
+        BuildSpec: "buildspec-zip.yml"
+      Triggers:
+        Webhook: true
+        FilterGroups:
+          - - Type: EVENT
+              Pattern: PUSH
+            - Type: HEAD_REF
+              Pattern: master
