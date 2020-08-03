@@ -39,7 +39,7 @@ phases:
       # - export current_account=${SPOKE_ACCOUNT}
       - echo "AWS_DEFAULT_REGION = "${AWS_DEFAULT_REGION}
       - echo "appenv = "${appenv}
-      - echo "test env"
+      - echo "test env1"
       # - echo "Current AWS Account = "${current_account}
 
   build:
